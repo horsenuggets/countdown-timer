@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Countdown Timer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .timer {
+      text-align: center;
+    }
+
+    .countdown {
+      font-size: clamp(3rem, 12vw, 8rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      color: #fff;
+    }
+
+    .label {
+      font-size: 1.2rem;
+      color: #888;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar {
+      width: min(80vw, 600px);
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      margin-top: 2rem;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #4af;
+      border-radius: 3px;
+      transition: width 0.1s linear;
+    }
+
+    .status-finished .countdown { color: #4a4; }
+    .status-waiting .countdown { color: #888; }
+
+    .error {
+      max-width: 600px;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .error h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+
+    .error code {
+      display: block;
+      background: #1a1a1a;
+      padding: 1rem;
+      border-radius: 6px;
+      margin: 1rem 0;
+      word-break: break-all;
+      color: #4af;
+    }
+
+    .error p { color: #888; line-height: 1.6; }
+
+    .create-form {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #111;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .create-form label {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: #aaa;
+      font-size: 0.9rem;
+    }
+
+    .create-form input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .create-form button {
+      width: 100%;
+      padding: 0.6rem;
+      background: #4af;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .create-form button:hover { background: #5bf; }
+
+    .generated-link {
+      margin-top: 1rem;
+      word-break: break-all;
+    }
+
+    .generated-link a {
+      color: #4af;
+      text-decoration: none;
+    }
+
+    .generated-link a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const startParam = params.get("start");
+    const endParam = params.get("end");
+
+    const app = document.getElementById("app");
+
+    if (!startParam || !endParam) {
+      showCreator();
+    } else {
+      const startMs = Number(startParam) * 1000;
+      const endMs = Number(endParam) * 1000;
+
+      if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) {
+        showError("Invalid parameters. End must be after start, and both must be valid UTC timestamps.");
+      } else {
+        showTimer(startMs, endMs);
+      }
+    }
+
+    function showTimer(startMs, endMs) {
+      app.innerHTML = `
+        <div class="timer" id="timer">
+          <div class="countdown" id="countdown">--:--:--</div>
+          <div class="label" id="label"></div>
+          <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        </div>
+      `;
+
+      const countdownEl = document.getElementById("countdown");
+      const labelEl = document.getElementById("label");
+      const progressEl = document.getElementById("progress");
+      const timerEl = document.getElementById("timer");
+      const totalDuration = endMs - startMs;
+
+      function update() {
+        const now = Date.now();
+
+        if (now < startMs) {
+          const remaining = startMs - now;
+          countdownEl.textContent = formatDuration(remaining);
+          labelEl.textContent = "until start";
+          progressEl.style.width = "0%";
+          timerEl.className = "timer status-waiting";
+        } else if (now >= endMs) {
+          countdownEl.textContent = "00:00:00";
+          labelEl.textContent = "finished";
+          progressEl.style.width = "100%";
+          timerEl.className = "timer status-finished";
+          return;
+        } else {
+          const remaining = endMs - now;
+          const elapsed = now - startMs;
+          const pct = (elapsed / totalDuration) * 100;
+          countdownEl.textContent = formatDuration(remaining);
+          labelEl.textContent = "remaining";
+          progressEl.style.width = pct.toFixed(2) + "%";
+          timerEl.className = "timer";
+        }
+
+        requestAnimationFrame(update);
+      }
+
+      update();
+    }
+
+    function formatDuration(ms) {
+      const totalSeconds = Math.ceil(ms / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (hours > 0) {
+        return pad(hours) + ":" + pad(minutes) + ":" + pad(seconds);
+      }
+      return pad(minutes) + ":" + pad(seconds);
+    }
+
+    function pad(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function showError(message) {
+      app.innerHTML = `
+        <div class="error">
+          <h1>Invalid Timer URL</h1>
+          <p>${message}</p>
+          <code>${window.location.href}</code>
+          <p>Expected format: <code>?start=UNIX_TIMESTAMP&end=UNIX_TIMESTAMP</code></p>
+        </div>
+      `;
+    }
+
+    function showCreator() {
+      const now = new Date();
+      const later = new Date(now.getTime() + 5 * 60 * 1000);
+
+      function toLocalISO(d) {
+        const off = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - off * 60000);
+        return local.toISOString().slice(0, 16);
+      }
+
+      app.innerHTML = `
+        <div class="error">
+          <h1>Countdown Timer</h1>
+          <p>
+            A stateless countdown timer synced across devices via URL parameters.
+            Create a timer below or manually set <code>?start=UNIX&end=UNIX</code> query params.
+          </p>
+          <div class="create-form">
+            <label for="start-input">Start time</label>
+            <input type="datetime-local" id="start-input" value="${toLocalISO(now)}">
+            <label for="end-input">End time</label>
+            <input type="datetime-local" id="end-input" value="${toLocalISO(later)}">
+            <button id="create-btn">Create timer</button>
+            <div class="generated-link" id="link-output"></div>
+          </div>
+        </div>
+      `;
+
+      document.getElementById("create-btn").addEventListener("click", () => {
+        const startVal = document.getElementById("start-input").value;
+        const endVal = document.getElementById("end-input").value;
+        if (!startVal || !endVal) return;
+
+        const startUnix = Math.floor(new Date(startVal).getTime() / 1000);
+        const endUnix = Math.floor(new Date(endVal).getTime() / 1000);
+
+        if (endUnix <= startUnix) {
+          document.getElementById("link-output").textContent = "End time must be after start time.";
+          return;
+        }
+
+        const url = `${window.location.origin}${window.location.pathname}?start=${startUnix}&end=${endUnix}`;
+        document.getElementById("link-output").innerHTML = `<a href="${url}">${url}</a>`;
+      });
+    }
+  </script>
+</body>
+</html>
